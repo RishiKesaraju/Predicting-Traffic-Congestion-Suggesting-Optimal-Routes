@@ -16,35 +16,3 @@ Scikit-learn: For Linear Regression and model evaluation.
 NumPy & Pandas: For data manipulation and numerical operations.
 Matplotlib: For plotting and visualizations.
 Logging: For tracking the progress and debugging.
-Installation
-Clone the repository:
-
-bash
-Copy code
-git clone https://github.com/yourusername/traffic-congestion-routing.git
-cd traffic-congestion-routing
-Create and activate a virtual environment (optional but recommended):
-
-bash
-Copy code
-python -m venv env
-source env/bin/activate  # On Windows, use `env\Scripts\activate`
-Install the required packages:
-
-bash
-Copy code
-pip install -r requirements.txt
-Usage
-Run the script to train the models and predict congestion:
-
-bash
-Copy code
-python traffic_congestion.py
-The script will output the optimal path and total distance both with and without considering congestion.
-
-Project Structure
-traffic_congestion.py: Main script containing the full implementation.
-requirements.txt: List of required Python packages.
-README.md: Project description and usage instructions.
-Contributing
-Contributions are welcome! Please open an issue or submit a pull request for any improvements or new features.
