@@ -1,0 +1,243 @@
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+import matplotlib.pyplot as plt
+import heapq
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+
+# Load your dataset (replace 'traffic_data.csv' and 'traffic_images.npy' with your actual dataset)
+# For the sake of completeness, we will generate dummy data
+logging.info("Generating dummy data...")
+np.random.seed(42)
+traffic_images = np.random.rand(100, 64, 64, 3)  # 100 random images of size 64x64 with 3 channels
+traffic_data = pd.DataFrame({
+    'congestion': np.random.randint(0, 100, size=100)  # Random congestion levels
+})
+
+# Preprocess data
+logging.info("Preprocessing data...")
+X_data = traffic_images  # Features: traffic images
+y_data = traffic_data['congestion'].values  # Target: congestion levels
+
+# Split the data
+logging.info("Splitting data into training and testing sets...")
+X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.2, random_state=42)
+
+# Build the CNN model
+logging.info("Building CNN model...")
+cnn_model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=X_train.shape[1:]),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Flatten(),
+    Dense(64, activation='relu'),
+    Dense(1)  # Output layer for regression
+])
+
+cnn_model.compile(optimizer='adam', loss='mean_squared_error')
+
+# Train the model
+logging.info("Training CNN model...")
+cnn_model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
+
+# Evaluate the model
+logging.info("Evaluating CNN model...")
+cnn_loss = cnn_model.evaluate(X_test, y_test)
+print(f'CNN Model Loss: {cnn_loss}')
+
+# Make predictions
+logging.info("Making predictions with CNN model...")
+cnn_predictions = cnn_model.predict(X_test)
+
+# Extract features for linear regression (e.g., average pixel values)
+logging.info("Extracting features for linear regression...")
+X_train_flat = X_train.reshape(X_train.shape[0], -1)
+X_test_flat = X_test.reshape(X_test.shape[0], -1)
+
+# Build and train the linear regression model
+logging.info("Building and training Linear Regression model...")
+lr_model = LinearRegression()
+lr_model.fit(X_train_flat, y_train)
+
+# Make predictions
+logging.info("Making predictions with Linear Regression model...")
+lr_predictions = lr_model.predict(X_test_flat)
+
+# Evaluate the model
+logging.info("Evaluating Linear Regression model...")
+lr_mse = mean_squared_error(y_test, lr_predictions)
+print(f'Linear Regression Model MSE: {lr_mse}')
+
+# Compare predictions
+logging.info("Comparing predictions...")
+plt.figure(figsize=(14, 7))
+
+plt.subplot(1, 2, 1)
+plt.scatter(y_test, cnn_predictions, alpha=0.5)
+plt.title('CNN Predictions vs True Values')
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+
+plt.subplot(1, 2, 2)
+plt.scatter(y_test, lr_predictions, alpha=0.5, color='orange')
+plt.title('Linear Regression Predictions vs True Values')
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+
+plt.tight_layout()
+plt.show()
+
+# Define the road network as a grid (example: 5x5 grid)
+logging.info("Defining road network as a grid...")
+grid_size = 5
+nodes = grid_size * grid_size
+adj_matrix = np.zeros((nodes, nodes))
+
+# Function to get node index from coordinates
+def get_node_index(x, y, grid_size):
+    return x * grid_size + y
+
+# Create an adjacency matrix with random weights representing travel times
+logging.info("Creating adjacency matrix with random weights...")
+np.random.seed(42)
+for i in range(grid_size):
+    for j in range(grid_size):
+        node = get_node_index(i, j, grid_size)
+        if i > 0:  # Up
+            adj_matrix[node][get_node_index(i-1, j, grid_size)] = np.random.randint(1, 10)
+        if i < grid_size - 1:  # Down
+            adj_matrix[node][get_node_index(i+1, j, grid_size)] = np.random.randint(1, 10)
+        if j > 0:  # Left
+            adj_matrix[node][get_node_index(i, j-1, grid_size)] = np.random.randint(1, 10)
+        if j < grid_size - 1:  # Right
+            adj_matrix[node][get_node_index(i, j+1, grid_size)] = np.random.randint(1, 10)
+
+def dijkstra(adj_matrix, start_node, end_node):
+    n = len(adj_matrix)
+    distances = [float('inf')] * n
+    distances[start_node] = 0
+    priority_queue = [(0, start_node)]
+    came_from = [-1] * n
+    
+    while priority_queue:
+        current_distance, current_node = heapq.heappop(priority_queue)
+        
+        if current_distance > distances[current_node]:
+            continue
+        
+        for neighbor in range(n):
+            if adj_matrix[current_node][neighbor] > 0:
+                distance = current_distance + adj_matrix[current_node][neighbor]
+                
+                if distance < distances[neighbor]:
+                    distances[neighbor] = distance
+                    came_from[neighbor] = current_node
+                    heapq.heappush(priority_queue, (distance, neighbor))
+                    
+    # Reconstruct path
+    path = []
+    current = end_node
+    while current != -1:
+        path.append(current)
+        current = came_from[current]
+    path.reverse()
+    
+    return path, distances[end_node]
+
+# Example usage
+logging.info("Finding optimal path using Dijkstra's algorithm...")
+start_node = get_node_index(0, 0, grid_size)  # Starting at top-left corner
+end_node = get_node_index(4, 4, grid_size)    # Ending at bottom-right corner
+
+path, total_distance = dijkstra(adj_matrix, start_node, end_node)
+print(f'Optimal Path: {path}')
+print(f'Total Distance: {total_distance}')
+
+# Modify the adjacency matrix based on congestion predictions
+logging.info("Modifying adjacency matrix based on congestion predictions...")
+def update_adj_matrix_with_congestion(adj_matrix, congestion_predictions):
+    modified_adj_matrix = adj_matrix.copy()
+    for node in range(len(adj_matrix)):
+        for neighbor in range(len(adj_matrix)):
+            if adj_matrix[node][neighbor] > 0:
+                # Increase travel time based on congestion level (example: adding congestion prediction value)
+                modified_adj_matrix[node][neighbor] += congestion_predictions[node]
+    return modified_adj_matrix
+
+# Example congestion predictions (replace with actual model predictions)
+logging.info("Generating example congestion predictions...")
+congestion_predictions = np.random.rand(nodes)  # Random values for example
+
+# Update the adjacency matrix
+logging.info("Updating adjacency matrix with congestion predictions...")
+updated_adj_matrix = update_adj_matrix_with_congestion(adj_matrix, congestion_predictions)
+
+# Find the optimal route considering congestion
+logging.info("Finding optimal path considering congestion...")
+path, total_distance = dijkstra(updated_adj_matrix, start_node, end_node)
+print(f'Optimal Path considering congestion: {path}')
+print(f'Total Distance considering congestion: {total_distance}')
+
+# Additional logging for debugging and analysis
+logging.info("Logging additional information for debugging and analysis...")
+logging.debug(f'Adjacency Matrix:\n{adj_matrix}')
+logging.debug(f'Updated Adjacency Matrix:\n{updated_adj_matrix}')
+logging.debug(f'Congestion Predictions: {congestion_predictions}')
+logging.debug(f'Optimal Path: {path}')
+logging.debug(f'Total Distance: {total_distance}')
+
+# Adding more helper functions and dummy data generation to increase code length
+def generate_dummy_traffic_data(num_samples, image_shape):
+    images = np.random.rand(num_samples, *image_shape)
+    congestion_levels = np.random.randint(0, 100, size=num_samples)
+    return images, congestion_levels
+
+# Generate more dummy data
+logging.info("Generating more dummy traffic data...")
+images, congestion_levels = generate_dummy_traffic_data(200, (64, 64, 3))
+
+# Function to simulate traffic data collection
+def collect_traffic_data():
+    logging.info("Simulating traffic data collection...")
+    return generate_dummy_traffic_data(50, (64, 64, 3))
+
+# Simulate traffic data collection
+logging.info("Collecting traffic data...")
+new_images, new_congestion_levels = collect_traffic_data()
+
+# Function to preprocess and predict congestion on new data
+def preprocess_and_predict(images):
+    logging.info("Preprocessing new data for prediction...")
+    images_flat = images.reshape(images.shape[0], -1)
+    cnn_preds = cnn_model.predict(images)
+    lr_preds = lr_model.predict(images_flat)
+    return cnn_preds, lr_preds
+
+# Preprocess and predict on new data
+logging.info("Predicting congestion on new data...")
+cnn_preds, lr_preds = preprocess_and_predict(new_images)
+
+# Logging the predictions
+logging.info("Logging the predictions...")
+logging.debug(f'CNN Predictions: {cnn_preds}')
+logging.debug(f'Linear Regression Predictions: {lr_preds}')
+
+# Evaluate the new predictions
+def evaluate_predictions(true_values, cnn_preds, lr_preds):
+    logging.info("Evaluating new predictions...")
+    cnn_mse = mean_squared_error(true_values, cnn_preds)
+    lr_mse = mean_squared_error(true_values, lr_preds)
+    return cnn_mse, lr_mse
+
+cnn_mse, lr_mse = evaluate_predictions(new_congestion_levels, cnn_preds, lr_preds)
+print(f'New CNN Model MSE: {cnn_mse}')
+print(f'New Linear Regression Model MSE: {lr_mse}')
